@@ -68,42 +68,35 @@ namespace VulnerableWebApplication.VLAController
         }
 
         public static string VulnerableXmlParser(string Xml)
+{
+    try
+    {
+        // Sécurise le XSLT : interdit document() et les scripts
+        var xslSettings = new XsltSettings(enableDocumentFunction: false, enableScript: false);
+
+        // Empêche toute résolution externe (protection SSRF)
+        var xmlReaderSettings = new XmlReaderSettings
         {
-            /*
-            Parse les contrats au format XML passées en paramètre et retourne son contenu
-            */
-            try
-            {
-                var Xsl = XDocument.Parse(Xml);
-                var MyXslTrans = new XslCompiledTransform(enableDebug: true);
-                var Settings = new XsltSettings();
-                MyXslTrans.Load(Xsl.CreateReader(), Settings, null);
-                var DocReader = XDocument.Parse("<doc></doc>").CreateReader();
+            DtdProcessing = DtdProcessing.Parse, // Autorise les DTD internes uniquement
+            XmlResolver = null                   // Bloque accès externes (réseau, fichiers)
+        };
 
-                var Sb = new StringBuilder();
-                var DocWriter = XmlWriter.Create(Sb, new XmlWriterSettings() { ConformanceLevel = ConformanceLevel.Fragment });
-                MyXslTrans.Transform(DocReader, DocWriter);
+        using var xslReader = XmlReader.Create(new StringReader(Xml), xmlReaderSettings);
+        var xslt = new XslCompiledTransform();
+        xslt.Load(xslReader, xslSettings, new XmlUrlResolver());
 
-                return Sb.ToString();
-            }
-            catch (Exception ex)
-            {
-                XmlReaderSettings ReaderSettings = new XmlReaderSettings();
-                ReaderSettings.DtdProcessing = DtdProcessing.Parse;
-                ReaderSettings.XmlResolver = new XmlUrlResolver();
-                ReaderSettings.MaxCharactersFromEntities = 6000;
+        using var inputDocReader = XmlReader.Create(new StringReader("<doc></doc>"));
+        var sb = new StringBuilder();
+        using var writer = XmlWriter.Create(sb, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment });
 
-                using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(Xml)))
-                {
-                    XmlReader Reader = XmlReader.Create(stream, ReaderSettings);
-                    var XmlDocument = new XmlDocument();
-                    XmlDocument.XmlResolver = new XmlUrlResolver();
-                    XmlDocument.Load(Reader);
-
-                    return XmlDocument.InnerText;
-                }
-            }
-        }
+        xslt.Transform(inputDocReader, writer);
+        return sb.ToString();
+    }
+    catch (Exception ex)
+    {
+        return $"[!] Error: {ex.Message}";
+    }
+}
 
         public static void VulnerableLogs(string Str, string LogFile)
         {
