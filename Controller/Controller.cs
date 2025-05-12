@@ -67,8 +67,9 @@ namespace VulnerableWebApplication.VLAController
             return Results.Ok(JsonConvert.SerializeObject(new List<object> { File.GetAttributes(ROFile).ToString(), NewId, string.IsNullOrEmpty(HaveToBeEmpty) }));
         }
 
-        public static string VulnerableXmlParser(string Xml)
+        public static string VulnerableXmlParser(string Xml)  
 {
+            Console.WriteLine("[DEBUG] Fonction appelée !");
     try
     {
         // Sécurise le XSLT : interdit document() et les scripts
