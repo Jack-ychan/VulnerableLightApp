@@ -7,6 +7,7 @@
 
 ### 🔸 1. Utilisation de secrets codés en dur (CWE-798)
 Où ? Fichier Docker
+<img width="65" alt="image" src="https://github.com/user-attachments/assets/64dcb890-94b0-4395-a8c3-3714efc7f8c5" />
 
 ### Commentaire :
 
