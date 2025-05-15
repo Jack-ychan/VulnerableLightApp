@@ -8,7 +8,7 @@ L'étape de la reconnaissance ( faite grâce à plusieurs outils, tels que dirb,
 
 Dirb, ffuf
 
-dirb https://localhost:3000 /usr/share/wordlists/seclists/Fuzzing/fuzz-Bo0oM.txt -w -H "Authorization: Bearer (Token Here)"
+irb https://localhost:3000 /usr/share/wordlists/seclists/Fuzzing/fuzz-Bo0oM.txt -w -H "Authorization: Bearer (Token Here)"
 
 ---> /login
 ---> /swagger
