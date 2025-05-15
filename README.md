@@ -87,7 +87,7 @@ curl -ik https://localhost:3000/login \
   -d '{"user": "'\''OR user LIKE '\''e%", "passwd": "re"}'
 
 Comme nous n'avons pas réussi à utiliser hydra, on a réalisé un script réalisé en python, et on a pu bruteforce la table user, afin de trouver un maximum de noms d'utilisateurs.
-Concernant les mots de passe, ils sont probablement stockés sous forme de hash, il fallait donc trouver un moyen de dump la base de donnée.
+Concernant les mots de passe, ils sont probablement stockés sous forme de hash, il fallait donc trouver un moyen de dump la base de donnée, ou retenter un brute force avec la liste des bons utilisateurs, sur le champ password.
 
 ###  2. Exposure of Sensitive Information to an Unauthorized Actor (CWE-200)
 
