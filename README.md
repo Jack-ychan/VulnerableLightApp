@@ -264,7 +264,7 @@ Recommandations : Implémenter une logique d’autorisation stricte basée sur l
 
 
 - Explications: Le paramètre `UserStr` est utilisé pour construire une commande shell sans échappement. Un attaquant pourrait donc injecter une commande arbitraire après l'appel "nslookup", conduisant à l'éxécution de commandes systèmes non prévues.
-- 
+  
 La page concernée ici est localdnsresolver, l'url n'a cependant pas encore pu être trouvée en utilisant des wordlist ( à l'étape de la reconnaissance ), mais a pu être observée à plusieurs reprises dans des fichiers de logs.
 
 Elle peut être éxploitée car l’application ne filtre pas correctement les entrées utilisateurs. 
