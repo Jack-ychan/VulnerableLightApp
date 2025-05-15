@@ -10,9 +10,9 @@ Dirb, ffuf
 
 irb https://localhost:3000 /usr/share/wordlists/seclists/Fuzzing/fuzz-Bo0oM.txt -w -H "Authorization: Bearer (Token Here)"
 
----> /login
+----> /login
+----> /swagger
 
----> /swagger
 ---> /swagger/index.html
 ---> /swagger/v1/swagger.json
 
