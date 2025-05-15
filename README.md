@@ -1,3 +1,4 @@
+Gérard Galmar / Yassine Abdaoui
 
 Pour repérer les vulnérabilités dans l'application, on a utilisé Snyk, pour réaliser une analyse du code source. Ce qui nous a permis de repérer plusieurs failles critiques.
 
