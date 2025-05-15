@@ -14,6 +14,7 @@ dirb https://localhost:3000 /usr/share/wordlists/seclists/Fuzzing/fuzz-Bo0oM.txt
 ---> /swagger
 ---> /swagger/index.html
 ---> /swagger/v1/swagger.json
+
 dirb https://localhost:3000 /usr/share/wordlists/seclists/Discovery/Web-Content/big.txt -w -H "Authorization: Bearer (Token Here)"
 
 ---> /login
@@ -30,7 +31,56 @@ ffuf -u https://localhost:3000/?FUZZ=test  -H 'Content-Type: application/json' -
 Un script résumant toutes les actions entreprises a également été fait en bash afin de structurer notre travail.
 Vous pourrez utiliser ce script afin de voir plus clairement comment on s'est organisé pour réaliser cette opération.
 
-###  1. Exposure of Sensitive Information to an Unauthorized Actor (CWE-200)
+###  1 SQL injection (CWE-89)
+
+Comme c'est une page simple de login, on sait déjà du premier coup d'oeil, qu'on doit tenter une injection sql.
+
+En curl, on tente en premier lieu de voir quel champ est injectable :
+
+curl -ik https://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "re", "password": "'\''"}'
+
+Par chance, le serveur nous retourne une réponse intéréssante : 
+
+---> at VulnerableWebApplication.VLAIdentity.VLAIdentity.VulnerableQuery(String User, String Passwd)
+
+On connait donc, grâce à cette mauvaise gestion des erreurs, le nom des champs, qui sont "User" et "Passwd".
+
+On retente donc ensuite de voir quel champ est injectable, avec les bons champs :
+
+--> curl -ik https://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"user": "'rr'", "passwd": "'\''"}'
+
+Comme le champ passwd n'est pas injectable :
+
+curl -ik https://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "'\''", "password": ""}'
+
+On découvre maintenant que le champ user est injectable
+
+On trouve ensuite le nom des colonnes encore grâce aux erreurs indiquées : 
+
+curl -ik https://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"user": "'\''OR username LIKE '\''crocks", "passwd": "re"}'
+  
+  ---> System.Data.EvaluateException: Cannot find column [username]
+  
+  On cherche ensuite le nom des colonnes encore grâce aux erreurs indiquées, et on trouve finalement user & passwd.
+
+  On récupère ensuite un token d'authentification grâce à une requête réussie.
+  
+curl -ik https://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"user": "'\''OR user LIKE '\''e%", "passwd": "re"}'
+
+Comme nous n'avons pas réussi à utiliser hydra, on a réalisé un script réalisé en python, et on a pu bruteforce la table user, afin de trouver un maximum de noms d'utilisateurs.
+Concernant les mots de passe, ils sont probablement stockés sous forme de hash, il fallait donc trouver un moyen de dump la base de donnée.
+
+###  2. Exposure of Sensitive Information to an Unauthorized Actor (CWE-200)
 
 ### Commentaire :
 
@@ -45,7 +95,9 @@ Requête pour récupérer le contenu /etc/passwd :
 La requête ici fonctionne éxeptionnellement avec des "/" pour ce genre de répertoires, je suppose que c'est parcequ'on peut accéder à /etc/passwd depuis n'importequel path, ce qui fait que ça bypass le fait que ces caractères soient interdits.
 
 
-###  2-3. Deserialization of Untrusted Data (CWE-502) + Code injection (CWE-94)
+
+
+###  3-4. Deserialization of Untrusted Data (CWE-502) + Code injection (CWE-94)
 
 Ici, on commence d'abord par éxécuter une commande curl simple, sur l'url https://localhost:3000/invoice/, et on constate rapidement qu'on obtient erreur 405 ( method not allowed ).
 
@@ -71,7 +123,7 @@ Par manque d'éxperience, cette vulnérabilité n'a pas pu être éxploitée jus
 Recommandations : Ne pas utiliser JsonConvert.DeserializeObject sur des données provenant de l’utilisateur sans validation stricte du format ( et du type ) attendu.
 
 
-###  4. XML Injection (CWE-91)
+###  5. XML Injection (CWE-91)
 
 
 Concernant l'injection XML, on a pu identifier l'url /contract qui retournait des erreurs liées à xml, lorsqu'on tentait de rentrer une valeur aléatoire au paramètre i.
@@ -87,7 +139,7 @@ L'injection peut être poussée bien plus loin, en injectant des balises supplé
 Recommandations : Désactiver le traitement des DTD, utiliser des parseurs XML sécurisés... ---> XmlReader avec DtdProcessing.Prohibit
 
 
-###  5. Utilisation de secrets codés en dur (CWE-798)
+###  6. Utilisation de secrets codés en dur (CWE-798)
 
 
 On a pu trouver cette vulnérabilité à partir de deux autres, injection sql pour trouver un token d'authentification ( qui correspondraient à un user admin dans un cas réel ) , et de la vulnérabilité LFI.
@@ -106,10 +158,10 @@ Recommandations : Ne jamais stocker de secrets en dur dans le code source, ou da
 Utiliser par exemple des gestionnaires de secrets sécurisés ( HashiCorp Vault, AWS Secrets Manager...)
 
 
-###  6-7. SSRF (CWE-94) + XXE Injection (CWE-611)
+###  7-8. SSRF (CWE-94) + XXE Injection (CWE-611)
 
 
-#### 6. XXE (XML External Entity)
+#### 7. XXE (XML External Entity)
 
 Explication : Le parseur XML peut traiter des entités externes définies dans l’input, ce qui permettrait à un attaquant d’accéder à des fichiers locaux ou de provoquer des requêtes vers des ressources internes.
 
@@ -132,7 +184,7 @@ curl -k https://localhost:3000/Contract?i=%3C%3Fxml%20version%3D%221.0%22%20enco
 Nous récupérons donc bien par la suite le contenu de etc/passwd, en appellant l'entité file.
 
 
-###  7. Server-Side Request Forgery (SSRF) (CWE-918) // Indirectement : URL Injection (CWE-601)
+### 8. Server-Side Request Forgery (SSRF) (CWE-918) // Indirectement : URL Injection (CWE-601)
 
 
 - **Snyk :** Une requête HTTP est effectuée en fonction d’une URL potentiellement contrôlée par l'utilisateur.  
@@ -159,7 +211,7 @@ Avec cette méthode, qui contourne souvent les protections ( car les droits sont
 Recommendations : Valider et filtrer les url fournies par l'utilisateur, désactiver les fonctionnalités du parser XML (XmlResolver ) pour empêcher les appels réseau inités via des entités éxternes ( XXE --> SSRF )
 
 
-###  8-9. Local File Intrusion (CWE-829) // Path Traversal (CWE-22)
+###  9-10. Local File Intrusion (CWE-829) // Path Traversal (CWE-22)
 
 
 -Explications : Un utilisateur peut manipuler le paramètre "lang" pour accéder à des fichiers système ou sensibles.
@@ -181,7 +233,7 @@ La requête fonctionne avec lang=/etc/passwd, mais si on a des soucis par la sui
 Recommandation : Utiliser une liste blanche de fichiers autorisés plutôt qu'une blacklist, bloquer toute les types de séquences, ne pas inclure directement des chemins ou noms de fichiers fournis par l'utilisateur sans validation, et configurer les permissions pour qu'en cas de faille, les fichiers ne soient pas lisibles par l'application.
 
 
-###  10. Insecure Direct Object Reference (IDOR) (CWE-639)
+###  11. Insecure Direct Object Reference (IDOR) (CWE-639)
 
 
 Explications : Le paramètre "Id" est utilisé directement pour retrouver un utilisateur sans vérification d’autorisation. ça permet donc à un utilisateur malveillant d'accéder à des données d'autres employés en changeant l'ID dans la requête.  
@@ -199,7 +251,7 @@ On découvre ensuite des données confidentielles d'une quinzaine d'employés.
 Recommandations : Implémenter une logique d’autorisation stricte basée sur l’utilisateur connecté, et vérifier que l’ID demandé lui appartient.
 
 
-###  11. Command Injection (CWE-77)
+###  12. Command Injection (CWE-77)
 
 
 - Explications: Le paramètre `UserStr` est utilisé pour construire une commande shell sans échappement. Un attaquant pourrait donc injecter une commande arbitraire après l'appel "nslookup", conduisant à l'éxécution de commandes systèmes non prévues.
@@ -215,7 +267,7 @@ Après avoir tenté un dirb pour trouver un paramètre valide, on comprend que l
 Recommandation : Ne jamais insérer de chaînes utilisateur dans une commande shell ( never trust user ). Utiliser des API sécurisées pour DNS, ou échapper correctement les arguments.
 
 
-###  12. GraphQL (CWE-200)
+###  13. GraphQL (CWE-200)
 
 
 - Explications: L’interface GraphQL est exposée publiquement. ça permet donc à un attaquant d'éxplorer toute l'API GraphQL.
